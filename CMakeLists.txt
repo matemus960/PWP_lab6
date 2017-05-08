@@ -19,8 +19,6 @@ include(${Slicer_USE_FILE})
 
 #-----------------------------------------------------------------------------
 # Extension modules
-add_subdirectory(lab6)
-add_subdirectory(lab6)
 add_subdirectory(labor6)
 ## NEXT_MODULE
 
