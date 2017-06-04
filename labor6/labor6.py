@@ -67,55 +67,28 @@ class labor6Widget(ScriptedLoadableModuleWidget):
     parametersFormLayout.addRow("Input model: ", self.inputSelector)
 
     #
-    # output volume selector
+    # transparency value
     #
-    """
-    self.outputSelector = slicer.qMRMLNodeComboBox()
-    self.outputSelector.nodeTypes = ["vtkMRMLScalarVolumeNode"]
-    self.outputSelector.selectNodeUponCreation = True
-    self.outputSelector.addEnabled = True
-    self.outputSelector.removeEnabled = True
-    self.outputSelector.noneEnabled = True
-    self.outputSelector.showHidden = False
-    self.outputSelector.showChildNodeTypes = False
-    self.outputSelector.setMRMLScene( slicer.mrmlScene )
-    self.outputSelector.setToolTip( "Pick the output to the algorithm." )
-    parametersFormLayout.addRow("Output Volume: ", self.outputSelector)
-    """
-
-    #
-    # threshold value
-    #
-    self.imageThresholdSliderWidget = ctk.ctkSliderWidget()
-    self.imageThresholdSliderWidget.singleStep = 1
-    self.imageThresholdSliderWidget.minimum = 0
-    self.imageThresholdSliderWidget.maximum = 100
-    self.imageThresholdSliderWidget.value = 0
-    self.imageThresholdSliderWidget.setToolTip("Set transparency.")
-    parametersFormLayout.addRow("Model transparency", self.imageThresholdSliderWidget)
-
-    #
-    # check box to trigger taking screen shots for later use in tutorials
-    #
-    """
-    self.enableScreenshotsFlagCheckBox = qt.QCheckBox()
-    self.enableScreenshotsFlagCheckBox.checked = 0
-    self.enableScreenshotsFlagCheckBox.setToolTip("If checked, take screen shots for tutorials. Use Save Data to write them to disk.")
-    parametersFormLayout.addRow("Enable Screenshots", self.enableScreenshotsFlagCheckBox)
-    """
+    self.modelTransparencySliderWidget = ctk.ctkSliderWidget()
+    self.modelTransparencySliderWidget.singleStep = 1
+    self.modelTransparencySliderWidget.minimum = 0
+    self.modelTransparencySliderWidget.maximum = 100
+    self.modelTransparencySliderWidget.value = 0
+    self.modelTransparencySliderWidget.setToolTip("Set transparency.")
+    parametersFormLayout.addRow("Model transparency: ", self.modelTransparencySliderWidget)
 
     #
     # Apply Button
     #
-    self.applyButton = qt.QPushButton("Show/hide")
-    self.applyButton.toolTip = "Show/hide selected model."
-    self.applyButton.enabled = False
-    parametersFormLayout.addRow(self.applyButton)
+    self.showHideButton = qt.QPushButton("Show/hide")
+    self.showHideButton.toolTip = "Show/hide selected model."
+    self.showHideButton.enabled = False
+    parametersFormLayout.addRow(self.showHideButton)
 
     # connections
-    self.applyButton.connect('clicked(bool)', self.onApplyButton)
+    self.showHideButton.connect('clicked(bool)', self.onShowHideButton)
     self.inputSelector.connect("currentNodeChanged(vtkMRMLNode*)", self.onSelect)
-    # self.outputSelector.connect("currentNodeChanged(vtkMRMLNode*)", self.onSelect)
+    self.modelTransparencySliderWidget.connect('valueChanged(double)', self.onSliderChange)
 
     # Add vertical spacer
     self.layout.addStretch(1)
@@ -127,12 +100,21 @@ class labor6Widget(ScriptedLoadableModuleWidget):
     pass
 
   def onSelect(self):
-    self.applyButton.enabled = self.inputSelector.currentNode()
-
-  def onApplyButton(self):
     logic = labor6Logic()
-    modelVisibility = self.imageThresholdSliderWidget.value
-    logic.run(self.inputSelector.currentNode(), modelVisibility)
+    self.showHideButton.enabled = self.inputSelector.currentNode()
+    if logic.hasModelData(self.inputSelector.currentNode()):
+      modelTransparency = self.modelTransparencySliderWidget.value
+      logic.setTransparency(self.inputSelector.currentNode().GetDisplayNode(), modelTransparency)
+
+  def onShowHideButton(self):
+    logic = labor6Logic()
+    logic.setVisibility(self.inputSelector.currentNode().GetDisplayNode())
+	
+  def onSliderChange(self):
+    logic = labor6Logic()
+    if logic.hasModelData(self.inputSelector.currentNode()):
+      modelTransparency = self.modelTransparencySliderWidget.value
+      logic.setTransparency(self.inputSelector.currentNode().GetDisplayNode(), modelTransparency)
 
 #
 # labor6Logic
@@ -147,44 +129,20 @@ class labor6Logic(ScriptedLoadableModuleLogic):
   Uses ScriptedLoadableModuleLogic base class, available at:
   https://github.com/Slicer/Slicer/blob/master/Base/Python/slicer/ScriptedLoadableModule.py
   """
-
-  def hasImageData(self,modelNode):
-    """This is an example logic method that
-    returns true if the passed in volume
-    node has valid image data
-    """
+  
+  def hasModelData(self,modelNode):
     if not modelNode:
-      logging.debug('hasImageData failed: no model node')
+      logging.debug('hasModelData failed: no model node')
       return False
-    """
-    if modelNode.GetImageData() is None:
-      logging.debug('hasImageData failed: no image data in volume node')
-      return False
-      """
+    
     return True
-
-  def setVisibility(self,inputVolume, modelVisibility):
-      dispModel = inputVolume.GetDisplayNode();
-      dispModel.SetOpacity((100-modelVisibility)/100)
-
-  def run(self, inputVolume, modelVisibility):
-    """
-    Run the actual algorithm
-    """
-
-    logging.info('Processing started')
-    self.hasImageData(inputVolume)
-    self.setVisibility(inputVolume,modelVisibility)
-
-    # Capture screenshot
-    """
-    if enableScreenshots:
-      self.takeScreenshot('labor6Test-Start','MyScreenshot',-1)
-      """
-
-    logging.info('Processing completed')
-
-    return True
+  
+  
+  def setTransparency(self,inputModel, modelTransparency):
+      inputModel.SetOpacity((100-modelTransparency)/100)
+	  
+  def setVisibility(self, inputModel):
+      inputModel.VisibilityOff() if inputModel.GetVisibility() else inputModel.VisibilityOn()
 
 
 class labor6Test(ScriptedLoadableModuleTest):
@@ -238,5 +196,5 @@ class labor6Test(ScriptedLoadableModuleTest):
 
     volumeNode = slicer.util.getNode(pattern="FA")
     logic = labor6Logic()
-    self.assertIsNotNone( logic.hasImageData(volumeNode) )
+    self.assertIsNotNone( logic.hasModelData(volumeNode) )
     self.delayDisplay('Test passed!')
